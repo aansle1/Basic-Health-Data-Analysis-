@@ -1,0 +1,111 @@
+---
+title: "NCQA Analysis (Ashley Ansley)"
+author: "Ashley Ansley"
+date: "3/27/2022"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+  word_document: default
+---
+
+## TASK 1: Merge the two datasets together. Call the resulting dataset "dat_1".
+
+# Before task 1, data exploration/cleaning will be perfomed below.
+# Data sets will be imported using read.csv (Excel worksheets were saved as separate CSV files) 
+# Note: For consistency/formatting purposes, state "a" was changed to state "A" in Excel prior to importing data. BP values of "NA" were also changed to "" in health data set. 
+```{r}
+people <-read.csv('/Users/ashleyansley/people.csv')
+health <-read.csv('/Users/ashleyansley/health.csv')
+head(people)
+head(health)
+```
+# Checking variable types.
+```{r}
+str(people)
+str(health)
+```
+
+# Converting variable types.
+```{r}
+# Since the health dataset has height column as a facotr, we will convert this to numeric/float.
+health$Height <- as.double(as.character(health$Height))
+str(health)
+head(health)
+```
+# Rounding Weight & Height fields to 3 decimals for visualization purposes. 
+```{r}
+library(dplyr)
+library(tidyverse)
+health <- health %>% mutate_at(vars(Weight, Height), funs(round(., 3)))
+head(health)
+```
+
+# Checking for Duplicates (to be removed)
+```{r}
+#People Dataset 
+duplicated(people)
+sum(duplicated(people))
+
+#Health Dataset 
+duplicated(health)
+sum(duplicated(health))
+```
+# There are no duplicate records in either dataset. We are good to move forward.
+
+```{r}
+# Explore headers before doing merge/join. 
+head(people)
+head(health)
+# ID and State fields are shared. 
+```
+# Now that the data exploration and cleaning is complete, we will merge the two data sets. 
+```{r}
+#Will do a full outer join as we want all the fields included. They match on Ids and State. 
+dat_1 = people %>% full_join(health)
+head(dat_1)
+```
+## TASK 2: Subset dat_1 to people from State A. Call the resulting dataset "dat_2".
+```{r}
+dat_2 <-dat_1[dat_1$State == "A", ] 
+head(dat_2)
+```
+## TASK 3: Calculate BMI using Height and Weight and save it as an additional variable called "BMI". Call the resulting dataset "dat_3".
+
+# Note: BMI field to be calculated from original merged data set. Should we want to filter by State A again, this can be done on the below new dataset with new BMI field. Also, it is an assumption that the height field is in cm and the weight field is in lbs.  1 lb = 0.45359237 kg. BMI= (weight (kg))/(height(m)^2). Will need to multiple Weight field by factor above for kg conversion, and divide Height in cm by 100 to convert to meters. 
+```{r}
+dat_3 <- dat_1 %>% mutate(BMI = (Weight*0.45359237)/((Height/100)^2))
+head(dat_3)
+```
+# Alternative code to above if we'd simply like to add BMI field without naming new subset: dat_1$BMI <- ((dat_1$Weight*0.45359237)/((dat_1$Height/100)^2))
+
+## TASK 4a: Summarize dat_3 by BP groups. Create a table with the count of people and summarize Kids (mean, 15th percentile, and 85th percentile).
+```{r}
+mean(dat_3$Kids)
+quantile(dat_3$Kids, probs = 0.15)
+quantile(dat_3$Kids, probs = 0.85)
+
+dat_4 = dat_3 %>% group_by(BP)  %>% 
+                    summarise(kids_mean = mean(Kids),
+                              quantile(dat_3$Kids, probs = 0.15),
+                              quantile(dat_3$Kids, probs = 0.85),
+                              .groups = 'drop')
+dat_4
+view(dat_4)
+# Note: The first record in BP field is blank for "n/a" (BP not avail)
+```
+
+## TASK 5a: Plot BMI by Height
+```{r}
+library(ggplot2)
+qplot(BMI,Height,data=dat_3,geom="line")
+```
+
+## TASK 5b: Plot BMI by Weight
+```{r}
+qplot(BMI,Weight,data=dat_3,geom="line")
+```
+
+## TASK 5c: Describe the difference between what you see in 5a versus 5b. How might somebody demonstrate the difference between 5a versus 5b quantitatively? Demonstrate that difference quantitatively if you have time.
+
+# 5a has no seasonality or trend, meaning that we cannot easily correlate height with BMI as it varies. However, 5b is clearly trending upward, meaning that we can likely (and more easily) use weight as a corelative factor when predicitng BMI. The more a person weighs, it's likely that their BMI is also higher compared to a person with a lower body weight. We cannot say the same for height and would not be able to say, the taller a person is the more their BMI or vice versa. 
